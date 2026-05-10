@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>生理周期追踪 - 健康记录</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    
+    :root {
+      --primary: #FF6B8A;
+      --primary-light: #FF8E53;
+      --bg-start: #FFF0F3;
+      --bg-end: #FFE4E9;
+    }
+
+    body {
+      background: linear-gradient(135deg, var(--bg-start) 0%, #fff 50%, var(--bg-end) 100%);
+      min-height: 100vh;
+    }
+
+    .page {
+      display: none;
+      padding: 16px;
+      padding-bottom: 100px;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      padding: 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 20px rgba(255,107,138,0.1);
+    }
+
+    .card-gradient {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+      color: white;
+      border-radius: 24px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+
+    .nav-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(20px);
+      display: flex;
+      justify-content: space-around;
+      padding: 12px 0;
+      padding-bottom: calc(12px + env(safe-area-inset-bottom));
+      box-shadow: 0 -4px 20px rgba(255,107,138,0.1);
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 20px;
+      border-radius: 16px;
+      color: #6b7280;
+      transition: all 0.2s;
+    }
+
+    .nav-item.active {
+      color: var(--primary);
+      background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%);
+    }
+
+    .nav-item span { font-size: 12px; }
+
+    .btn {
+      min-height: 44px;
+      border-radius: 16px;
+      border: none;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+      color: white;
+      padding: 14px 24px;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .quick-action {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 20px 8px;
+      border-radius: 16px;
+      color: white;
+    }
+
+    .mood-emoji { font-size: 80px; }
+
+    .stat-card {
+      background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%);
+      border-radius: 16px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 40px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: flex-end;
+      z-index: 100;
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 24px 24px 0 0;
+      width: 100%;
+      padding: 24px;
+      padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    }
+
+    .mood-options {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .mood-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 16px 8px;
+      background: #f3f4f6;
+      border-radius: 16px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      user-select: none;
+      touch-action: manipulation;
+    }
+
+    .mood-item:hover {
+      background: #e5e7eb;
+      transform: scale(1.02);
+    }
+
+    .mood-item:active {
+      transform: scale(0.98);
+    }
+
+    .mood-item.selected {
+      border-color: var(--primary);
+      background: var(--bg-start);
+      transform: scale(1.02);
+    }
+
+    .mood-item .emoji { font-size: 48px; }
+    .mood-item .label { font-size: 12px; }
+
+    .slider {
+      width: 100%;
+      height: 8px;
+      -webkit-appearance: none;
+      background: #f3f4f6;
+      border-radius: 4px;
+    }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px;
+      height: 24px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+      border-radius: 50%;
+    }
+
+    .star-rating { display: flex; gap: 4px; }
+    .star { font-size: 32px; color: #e5e7eb; cursor: pointer; }
+    .star.active { color: #f59e0b; }
+
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: #f3f4f6;
+      border-radius: 12px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      user-select: none;
+      touch-action: manipulation;
+    }
+
+    .checkbox-item:hover {
+      background: #e5e7eb;
+    }
+
+    .checkbox-item.selected {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    .checkbox {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid #d1d5db;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .checkbox-item.selected .checkbox {
+      background: #dc2626;
+      border-color: #dc2626;
+    }
+
+    .checkbox-item.selected .checkbox::after { content: '✓'; color: white; font-size: 14px; }
+
+    .switch {
+      width: 48px;
+      height: 28px;
+      border-radius: 14px;
+      background: #d1d5db;
+      position: relative;
+    }
+
+    .switch.active {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    }
+
+    .switch::after {
+      content: '';
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      background: white;
+      border-radius: 50%;
+      top: 2px;
+      left: 2px;
+      transition: all 0.2s;
+    }
+
+    .switch.active::after { left: 22px; }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+    }
+
+    .calendar-day {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+    }
+
+    .calendar-day.today { border: 2px solid var(--primary); }
+    .calendar-day.selected { 
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); 
+      color: white; 
+    }
+    .calendar-day.period { background: #fee2e2; }
+    .calendar-day.ovulation { background: #dcfce7; }
+    .calendar-day.empty { background: transparent; pointer-events: none; }
+
+    .week-header {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .week-day { text-align: center; font-size: 12px; color: #6b7280; }
+
+    .progress-bar {
+      height: 8px;
+      background: #f3f4f6;
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 8px 0;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    }
+  </style>
+</head>
+<body>
+  <div id="dashboard" class="page active">
+    <div class="card-gradient" onclick="showMoodPicker()">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 16px;">
+        <span style="opacity: 0.8;">今日心情</span>
+        <span id="currentDate"></span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <span class="mood-emoji" id="currentMood">+</span>
+        <div>
+          <p style="font-size: 24px; font-weight: 600;" id="currentMoodText">点击记录心情</p>
+          <span id="periodIndicator" style="display: none; margin-top: 8px; padding: 6px 12px; background: rgba(255,255,255,0.2); border-radius: 20px; font-size: 12px;">🩸 生理期第 3 天</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">周期概览</h2>
+      <div class="grid-4">
+        <div class="stat-card">
+          <div class="stat-value" id="cycleDay">12</div>
+          <div style="font-size: 12px; color: #6b7280;">周期天数</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="daysUntil">16</div>
+          <div style="font-size: 12px; color: #6b7280;">下次生理期</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="periodDays">5</div>
+          <div style="font-size: 12px; color: #6b7280;">经期长度</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="cycleLength">28</div>
+          <div style="font-size: 12px; color: #6b7280;">周期长度</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-4">
+      <div class="quick-action" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);" onclick="goToPage('record')">
+        <span style="font-size: 28px;">+</span>
+        <span style="font-size: 12px;">记录</span>
+      </div>
+      <div class="quick-action" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);" onclick="goToPage('calendar')">
+        <span style="font-size: 28px;">📅</span>
+        <span style="font-size: 12px;">日历</span>
+      </div>
+      <div class="quick-action" style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);" onclick="goToPage('stats')">
+        <span style="font-size: 28px;">📊</span>
+        <span style="font-size: 12px;">统计</span>
+      </div>
+      <div class="quick-action" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);" onclick="goToPage('settings')">
+        <span style="font-size: 28px;">⚙️</span>
+        <span style="font-size: 12px;">设置</span>
+      </div>
+    </div>
+
+    <div id="todayRecord" class="card" style="display: none;">
+      <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">今日记录</h3>
+      <div style="font-size: 14px;">💤 <span id="sleepRecord">7小时 · 4星</span></div>
+    </div>
+  </div>
+
+  <div id="calendar" class="page">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <button class="btn" style="width: 44px; height: 44px; background: rgba(255,255,255,0.8);" onclick="prevMonth()">‹</button>
+      <h1 id="calendarTitle" style="font-size: 20px; font-weight: 600;"></h1>
+      <button class="btn" style="width: 44px; height: 44px; background: rgba(255,255,255,0.8);" onclick="nextMonth()">›</button>
+    </div>
+
+    <div class="card" style="margin-bottom: 16px;">
+      <p id="selectedDateInfo" style="text-align: center; color: #6b7280; font-size: 14px; padding: 12px;">点击日期查看详情</p>
+    </div>
+
+    <div class="card">
+      <div class="week-header">
+        <div class="week-day">日</div>
+        <div class="week-day">一</div>
+        <div class="week-day">二</div>
+        <div class="week-day">三</div>
+        <div class="week-day">四</div>
+        <div class="week-day">五</div>
+        <div class="week-day">六</div>
+      </div>
+      <div class="calendar-grid" id="calendarGrid"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">图例说明</h3>
+      <div style="display: flex; flex-wrap: wrap; gap: 16px; font-size: 14px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 12px; height: 12px; border-radius: 50%; background: #f87171;"></div>
+          <span>生理期</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 12px; height: 12px; border-radius: 50%; background: #4ade80;"></div>
+          <span>排卵日</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="record" class="page">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <button class="btn" style="width: 44px; height: 44px; background: rgba(255,255,255,0.8);" onclick="goToPage('dashboard')">‹</button>
+      <div style="text-align: center;">
+        <h1 style="font-size: 20px; font-weight: 600;">添加记录</h1>
+        <p id="recordDate" style="font-size: 14px; color: #6b7280;"></p>
+      </div>
+      <div style="width: 44px;"></div>
+    </div>
+
+    <div class="card">
+      <button id="periodBtn" style="width: 100%; padding: 16px; border-radius: 16px; background: #f3f4f6; border: 2px solid transparent; display: flex; align-items: center; justify-content: center; gap: 12px;" onclick="togglePeriod()">
+        <span style="font-size: 32px;">🩸</span>
+        <span id="periodText">标记为生理期</span>
+      </button>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">今日情绪</h3>
+      <div class="mood-options">
+        <div class="mood-item" onclick="selectMood('happy')"><span class="emoji">😊</span><span class="label">开心</span></div>
+        <div class="mood-item" onclick="selectMood('calm')"><span class="emoji">😌</span><span class="label">平静</span></div>
+        <div class="mood-item" onclick="selectMood('nervous')"><span class="emoji">😰</span><span class="label">紧张</span></div>
+        <div class="mood-item" onclick="selectMood('tired')"><span class="emoji">😴</span><span class="label">疲惫</span></div>
+        <div class="mood-item" onclick="selectMood('anxious')"><span class="emoji">😟</span><span class="label">焦虑</span></div>
+        <div class="mood-item" onclick="selectMood('irritated')"><span class="emoji">😤</span><span class="label">烦躁</span></div>
+        <div class="mood-item" onclick="selectMood('excited')"><span class="emoji">🤩</span><span class="label">兴奋</span></div>
+        <div class="mood-item" onclick="selectMood('sad')"><span class="emoji">😔</span><span class="label">低落</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">睡眠情况</h3>
+      <div style="margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: #6b7280;">睡眠时长</span>
+          <span style="color: var(--primary); font-weight: 600;" id="sleepHours">7小时</span>
+        </div>
+        <input type="range" class="slider" min="0" max="12" step="0.5" value="7" oninput="updateSleepHours(this.value)">
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="color: #6b7280;">睡眠质量</span>
+        <div class="star-rating" id="sleepStars">
+          <span class="star" onclick="setSleepQuality(1)">★</span>
+          <span class="star" onclick="setSleepQuality(2)">★</span>
+          <span class="star" onclick="setSleepQuality(3)">★</span>
+          <span class="star" onclick="setSleepQuality(4)">★</span>
+          <span class="star" onclick="setSleepQuality(5)">★</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">运动情况</h3>
+      <div class="mood-options">
+        <div class="mood-item" onclick="selectExercise('none')"><span class="emoji">🛋️</span><span class="label">无运动</span></div>
+        <div class="mood-item" onclick="selectExercise('walk')"><span class="emoji">🚶</span><span class="label">散步</span></div>
+        <div class="mood-item" onclick="selectExercise('run')"><span class="emoji">🏃</span><span class="label">跑步</span></div>
+        <div class="mood-item" onclick="selectExercise('yoga')"><span class="emoji">🧘</span><span class="label">瑜伽</span></div>
+        <div class="mood-item" onclick="selectExercise('gym')"><span class="emoji">💪</span><span class="label">健身</span></div>
+        <div class="mood-item" onclick="selectExercise('swim')"><span class="emoji">🏊</span><span class="label">游泳</span></div>
+        <div class="mood-item" onclick="selectExercise('dance')"><span class="emoji">💃</span><span class="label">跳舞</span></div>
+        <div class="mood-item" onclick="selectExercise('bike')"><span class="emoji">🚴</span><span class="label">骑行</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">症状记录</h3>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        <div class="checkbox-item" onclick="toggleSymptom('腹痛')"><div class="checkbox"></div><span>腹痛</span></div>
+        <div class="checkbox-item" onclick="toggleSymptom('头痛')"><div class="checkbox"></div><span>头痛</span></div>
+        <div class="checkbox-item" onclick="toggleSymptom('疲劳')"><div class="checkbox"></div><span>疲劳</span></div>
+        <div class="checkbox-item" onclick="toggleSymptom('乳房胀痛')"><div class="checkbox"></div><span>乳房胀痛</span></div>
+      </div>
+    </div>
+
+    <div style="margin-top: 24px; margin-bottom: 24px;">
+      <button class="btn-primary" style="width: 100%; padding: 16px; font-size: 18px;" onclick="saveRecord()">保存记录</button>
+    </div>
+  </div>
+
+  <div id="stats" class="page">
+    <div style="display: flex; background: rgba(255,255,255,0.8); border-radius: 16px; padding: 4px; margin-bottom: 24px;">
+      <button class="btn active-time-range" style="flex: 1; padding: 12px; border-radius: 12px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: white;" onclick="setTimeRange(event, 'week')">本周</button>
+      <button class="btn" style="flex: 1; padding: 12px; border-radius: 12px;" onclick="setTimeRange(event, 'month')">本月</button>
+      <button class="btn" style="flex: 1; padding: 12px; border-radius: 12px;" onclick="setTimeRange(event, 'quarter')">本季</button>
+      <button class="btn" style="flex: 1; padding: 12px; border-radius: 12px;" onclick="setTimeRange(event, 'year')">本年</button>
+    </div>
+
+    <div class="card-gradient">
+      <div class="grid-4">
+        <div style="text-align: center;">
+          <p style="font-size: 40px; font-weight: 700;" id="recordDays">0</p>
+          <p style="font-size: 12px; opacity: 0.8;">记录天数</p>
+        </div>
+        <div style="text-align: center;">
+          <p style="font-size: 40px; font-weight: 700;" id="avgSleep">0</p>
+          <p style="font-size: 12px; opacity: 0.8;">平均睡眠</p>
+        </div>
+        <div style="text-align: center;">
+          <p style="font-size: 40px; font-weight: 700;" id="periodDays">0</p>
+          <p style="font-size: 12px; opacity: 0.8;">生理天数</p>
+        </div>
+        <div style="text-align: center;">
+          <p style="font-size: 40px; font-weight: 700;" id="exerciseDays">0</p>
+          <p style="font-size: 12px; opacity: 0.8;">运动次数</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">情绪分布</h3>
+      <div id="moodStatsContainer">
+        <p style="text-align: center; color: #9ca3af;">暂无数据</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">睡眠趋势</h3>
+      <div id="sleepChartContainer">
+        <p style="text-align: center; color: #9ca3af; padding: 40px 0;">暂无睡眠数据</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">周期统计</h3>
+      <div style="display: flex; justify-content: space-around; text-align: center;">
+        <div>
+          <p style="font-size: 28px; font-weight: 600;" id="avgCycle">---</p>
+          <p style="font-size: 12px; color: #6b7280;">平均周期(天)</p>
+        </div>
+        <div>
+          <p style="font-size: 28px; font-weight: 600;" id="periodDaysCount">0</p>
+          <p style="font-size: 12px; color: #6b7280;">生理期天数</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings" class="page">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
+      <button class="btn" style="width: 44px; height: 44px; background: rgba(255,255,255,0.8);" onclick="goToPage('dashboard')">‹</button>
+      <h1 style="font-size: 20px; font-weight: 600;">设置中心</h1>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">周期设置</h3>
+      <div style="padding-bottom: 16px; border-bottom: 1px solid #f3f4f6; margin-bottom: 16px;">
+        <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px;">上次生理期开始日期</label>
+        <input type="date" style="width: 100%; padding: 12px; background: #f3f4f6; border-radius: 12px; border: none;" id="lastPeriodDate">
+      </div>
+      <div style="padding-bottom: 16px; border-bottom: 1px solid #f3f4f6; margin-bottom: 16px;">
+        <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px;">平均周期长度</label>
+        <input type="range" class="slider" min="21" max="35" value="28" oninput="updateCycleLength(this.value)" id="cycleLengthSlider">
+        <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+          <span style="font-size: 12px; color: #6b7280;">21-35天</span>
+          <span style="font-size: 20px; font-weight: 700; color: var(--primary);" id="cycleLengthValue">28天</span>
+        </div>
+      </div>
+      <div>
+        <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px;">月经期长度</label>
+        <input type="range" class="slider" min="3" max="8" value="5" oninput="updatePeriodLength(this.value)" id="periodLengthSlider">
+        <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+          <span style="font-size: 12px; color: #6b7280;">3-8天</span>
+          <span style="font-size: 20px; font-weight: 700; color: var(--primary);" id="periodLengthValue">5天</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">提醒设置</h3>
+      <button style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 16px; background: #f3f4f6; border-radius: 12px; margin-bottom: 12px;" onclick="toggleReminder('period')">
+        <div style="text-align: left;">
+          <p style="font-weight: 500;">生理期提醒</p>
+          <p style="font-size: 12px; color: #6b7280;">生理期开始前一天提醒</p>
+        </div>
+        <div class="switch active" id="periodReminder"></div>
+      </button>
+      <button style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 16px; background: #f3f4f6; border-radius: 12px; margin-bottom: 12px;" onclick="toggleReminder('ovulation')">
+        <div style="text-align: left;">
+          <p style="font-weight: 500;">排卵日提醒</p>
+          <p style="font-size: 12px; color: #6b7280;">排卵日当天提醒</p>
+        </div>
+        <div class="switch active" id="ovulationReminder"></div>
+      </button>
+      <button style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 16px; background: #f3f4f6; border-radius: 12px;" onclick="toggleReminder('daily')">
+        <div style="text-align: left;">
+          <p style="font-weight: 500;">每日记录提醒</p>
+          <p style="font-size: 12px; color: #6b7280;">每天提醒记录健康状态</p>
+        </div>
+        <div class="switch active" id="dailyReminder"></div>
+      </button>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">数据管理</h3>
+      <button style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 16px; background: #dcfce7; border-radius: 12px; margin-bottom: 12px;" onclick="exportData()">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 24px;">📥</span>
+          <span style="font-weight: 500;">导出数据</span>
+        </div>
+        <span style="font-size: 18px;">›</span>
+      </button>
+      <button style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 16px; background: #dbeafe; border-radius: 12px;" onclick="showClearConfirm()">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 24px;">🗑️</span>
+          <span style="font-weight: 500; color: #dc2626;">清除所有数据</span>
+        </div>
+        <span style="font-size: 18px;">›</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="nav-bar">
+    <div class="nav-item active" id="nav-dashboard" onclick="goToPage('dashboard')">
+      <span style="font-size: 24px;">🏠</span>
+      <span>首页</span>
+    </div>
+    <div class="nav-item" id="nav-calendar" onclick="goToPage('calendar')">
+      <span style="font-size: 24px;">📅</span>
+      <span>日历</span>
+    </div>
+    <div class="nav-item" id="nav-stats" onclick="goToPage('stats')">
+      <span style="font-size: 24px;">📊</span>
+      <span>统计</span>
+    </div>
+    <div class="nav-item" id="nav-settings" onclick="goToPage('settings')">
+      <span style="font-size: 24px;">⚙️</span>
+      <span>设置</span>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="moodModal">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <h3 style="text-align: center; font-size: 18px; font-weight: 600; margin-bottom: 24px;">选择今日心情</h3>
+      <div class="mood-options">
+        <div class="mood-item" onclick="selectMoodAndClose('happy')"><span class="emoji">😊</span><span class="label">开心</span></div>
+        <div class="mood-item" onclick="selectMoodAndClose('calm')"><span class="emoji">😌</span><span class="label">平静</span></div>
+        <div class="mood-item" onclick="selectMoodAndClose('nervous')"><span class="emoji">😰</span><span class="label">紧张</span></div>
+        <div class="mood-item" onclick="selectMoodAndClose('tired')"><span class="emoji">😴</span><span class="label">疲惫</span></div>
+        <div class="mood-item" onclick="selectMoodAndClose('anxious')"><span class="emoji">😟</span><span class="label">焦虑</span></div>
+        <div class="mood-item" onclick="selectMoodAndClose('irritated')"><span class="emoji">😤</span><span class="label">烦躁</span></div>
+        <div class="mood-item" onclick="selectMoodAndClose('excited')"><span class="emoji">🤩</span><span class="label">兴奋</span></div>
+        <div class="mood-item" onclick="selectMoodAndClose('sad')"><span class="emoji">😔</span><span class="label">低落</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="clearConfirmModal">
+    <div class="modal-content" style="border-radius: 24px;" onclick="event.stopPropagation()">
+      <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">确认清除</h3>
+      <p style="font-size: 14px; color: #6b7280; margin-bottom: 24px;">此操作将清除所有数据，确定继续吗？</p>
+      <div style="display: flex; gap: 12px;">
+        <button class="btn" style="flex: 1; padding: 12px; background: #f3f4f6;" onclick="hideClearConfirm()">取消</button>
+        <button class="btn-primary" style="flex: 1; padding: 12px;" onclick="clearAllData()">确定清除</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const MOOD_MAP = {
+      happy: { emoji: '😊', label: '开心' },
+      calm: { emoji: '😌', label: '平静' },
+      nervous: { emoji: '😰', label: '紧张' },
+      tired: { emoji: '😴', label: '疲惫' },
+      anxious: { emoji: '😟', label: '焦虑' },
+      irritated: { emoji: '😤', label: '烦躁' },
+      excited: { emoji: '🤩', label: '兴奋' },
+      sad: { emoji: '😔', label: '低落' },
+    };
+
+    let currentMood = '';
+    let recordData = {
+      isPeriod: false,
+      mood: '',
+      sleepHours: 7,
+      sleepQuality: 3,
+      exercise: 'none',
+      symptoms: [],
+    };
+
+    let cycleSettings = {
+      lastPeriodDate: '',
+      cycleLength: 28,
+      periodLength: 5,
+    };
+
+    let currentCalendarYear = new Date().getFullYear();
+    let currentCalendarMonth = new Date().getMonth();
+    let selectedDate = null;
+    let filterStartDate = null;
+    let filterEndDate = null;
+
+    function getCurrentDate() {
+      const now = new Date();
+      const month = now.getMonth() + 1;
+      const day = now.getDate();
+      const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+      return `${month}月${day}日 ${weekDays[now.getDay()]}`;
+    }
+
+    function formatDate(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function parseDate(dateStr) {
+      const parts = dateStr.split('-');
+      return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    }
+
+    function goToPage(page) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.getElementById(page).classList.add('active');
+      document.getElementById(`nav-${page}`).classList.add('active');
+      
+      if (page === 'calendar') {
+        renderCalendar();
+      } else if (page === 'stats') {
+        if (!filterStartDate || !filterEndDate) {
+          setDefaultTimeRange();
+        }
+        updateStatistics();
+      } else if (page === 'record') {
+        resetRecordForm();
+      }
+    }
+    
+    function resetRecordForm() {
+      recordData = { isPeriod: false, mood: '', sleepHours: 7, sleepQuality: 3, exercise: 'none', symptoms: [] };
+      currentMood = '';
+      
+      const periodBtn = document.getElementById('periodBtn');
+      const periodText = document.getElementById('periodText');
+      if (periodBtn) {
+        periodBtn.style.background = '#f3f4f6';
+        periodBtn.style.borderColor = 'transparent';
+      }
+      if (periodText) {
+        periodText.textContent = '标记为生理期';
+      }
+      
+      document.getElementById('sleepHours').textContent = '7小时';
+      const slider = document.querySelector('#record input[type="range"]');
+      if (slider) slider.value = 7;
+      
+      setSleepQuality(3);
+      
+      document.querySelectorAll('.mood-item').forEach(item => item.classList.remove('selected'));
+      document.querySelectorAll('.checkbox-item').forEach(item => item.classList.remove('selected'));
+    }
+
+    function showMoodPicker() {
+      document.getElementById('moodModal').classList.add('show');
+    }
+
+    function hideMoodPicker() {
+      document.getElementById('moodModal').classList.remove('show');
+    }
+
+    function prevMonth() {
+      currentCalendarMonth--;
+      if (currentCalendarMonth < 0) {
+        currentCalendarMonth = 11;
+        currentCalendarYear--;
+      }
+      renderCalendar();
+    }
+
+    function nextMonth() {
+      currentCalendarMonth++;
+      if (currentCalendarMonth > 11) {
+        currentCalendarMonth = 0;
+        currentCalendarYear++;
+      }
+      renderCalendar();
+    }
+
+    function isPeriodDay(dateStr) {
+      if (!cycleSettings.lastPeriodDate) return false;
+      const lastStart = parseDate(cycleSettings.lastPeriodDate);
+      const periodEnd = new Date(lastStart);
+      periodEnd.setDate(periodEnd.getDate() + cycleSettings.periodLength - 1);
+      const current = parseDate(dateStr);
+      return current >= lastStart && current <= periodEnd;
+    }
+
+    function isOvulationDay(dateStr) {
+      if (!cycleSettings.lastPeriodDate) return false;
+      const lastStart = parseDate(cycleSettings.lastPeriodDate);
+      const ovulationDate = new Date(lastStart);
+      ovulationDate.setDate(ovulationDate.getDate() + cycleSettings.cycleLength - 14);
+      return dateStr === formatDate(ovulationDate);
+    }
+
+    function getDayStatus(dateStr) {
+      if (isPeriodDay(dateStr)) return 'period';
+      if (isOvulationDay(dateStr)) return 'ovulation';
+      return 'normal';
+    }
+
+    function handleDateClick(dateStr) {
+      selectedDate = dateStr;
+      renderCalendar();
+      updateStatistics();
+      document.getElementById('selectedDateInfo').textContent = `已选择: ${dateStr}`;
+    }
+
+    function setDateRange(start, end) {
+      filterStartDate = start;
+      filterEndDate = end;
+      updateStatistics();
+    }
+
+    function setTimeRange(event, range) {
+      document.querySelectorAll('.active-time-range').forEach(el => {
+        el.classList.remove('active-time-range');
+        el.style.background = '';
+        el.style.color = '';
+      });
+      const target = event.currentTarget || event.target;
+      target.classList.add('active-time-range');
+      target.style.background = 'linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)';
+      target.style.color = 'white';
+
+      const now = new Date();
+      let start, end;
+
+      switch(range) {
+        case 'week':
+          start = new Date(now);
+          start.setDate(start.getDate() - 6);
+          end = now;
+          break;
+        case 'month':
+          start = new Date(now.getFullYear(), now.getMonth(), 1);
+          end = now;
+          break;
+        case 'quarter':
+          const quarter = Math.floor(now.getMonth() / 3);
+          start = new Date(now.getFullYear(), quarter * 3, 1);
+          end = now;
+          break;
+        case 'year':
+          start = new Date(now.getFullYear(), 0, 1);
+          end = now;
+          break;
+      }
+
+      filterStartDate = formatDate(start);
+      filterEndDate = formatDate(end);
+      selectedDate = null;
+      updateStatistics();
+    }
+
+    function setDefaultTimeRange() {
+      const now = new Date();
+      const start = new Date(now);
+      start.setDate(start.getDate() - 6);
+      filterStartDate = formatDate(start);
+      filterEndDate = formatDate(now);
+      selectedDate = null;
+    }
+
+    function selectMood(mood) {
+      currentMood = mood;
+      const moodInfo = MOOD_MAP[mood];
+      document.getElementById('currentMood').textContent = moodInfo.emoji;
+      document.getElementById('currentMoodText').textContent = moodInfo.label;
+      document.getElementById('todayRecord').style.display = 'block';
+      
+      document.querySelectorAll('.mood-item').forEach(item => item.classList.remove('selected'));
+      
+      const target = event.currentTarget || event.target;
+      const moodItem = target.closest('.mood-item');
+      if (moodItem) {
+        moodItem.classList.add('selected');
+      }
+    }
+
+    function selectMoodAndClose(mood) {
+      selectMood(mood);
+      hideMoodPicker();
+    }
+
+    function togglePeriod() {
+      recordData.isPeriod = !recordData.isPeriod;
+      const btn = document.getElementById('periodBtn');
+      const text = document.getElementById('periodText');
+      
+      if (recordData.isPeriod) {
+        btn.style.background = '#fee2e2';
+        btn.style.borderColor = '#f87171';
+        btn.style.color = '#dc2626';
+        text.textContent = '是生理期';
+      } else {
+        btn.style.background = '#f3f4f6';
+        btn.style.borderColor = 'transparent';
+        btn.style.color = '#374151';
+        text.textContent = '标记为生理期';
+      }
+    }
+
+    function updateSleepHours(value) {
+      recordData.sleepHours = parseFloat(value);
+      document.getElementById('sleepHours').textContent = `${value}小时`;
+    }
+
+    function setSleepQuality(quality) {
+      recordData.sleepQuality = quality;
+      document.querySelectorAll('.star').forEach((star, i) => {
+        star.classList.toggle('active', i < quality);
+      });
+    }
+
+    function selectExercise(exercise) {
+      recordData.exercise = exercise;
+      document.querySelectorAll('.mood-item').forEach(item => item.classList.remove('selected'));
+      
+      const target = event.currentTarget || event.target;
+      const moodItem = target.closest('.mood-item');
+      if (moodItem) {
+        moodItem.classList.add('selected');
+      }
+    }
+
+    function toggleSymptom(symptom) {
+      const index = recordData.symptoms.indexOf(symptom);
+      if (index > -1) {
+        recordData.symptoms.splice(index, 1);
+      } else {
+        recordData.symptoms.push(symptom);
+      }
+      
+      const target = event.currentTarget || event.target;
+      const checkboxItem = target.closest('.checkbox-item');
+      if (checkboxItem) {
+        checkboxItem.classList.toggle('selected');
+      }
+    }
+
+    function saveRecord() {
+      const record = {
+        date: formatDate(new Date()),
+        mood: currentMood,
+        isPeriod: recordData.isPeriod,
+        sleepHours: recordData.sleepHours,
+        sleepQuality: recordData.sleepQuality,
+        exercise: recordData.exercise,
+        symptoms: [...recordData.symptoms]
+      };
+      
+      if (!record.mood) {
+        alert('请选择今日情绪');
+        return;
+      }
+      
+      const records = JSON.parse(localStorage.getItem('healthRecords') || '[]');
+      records.push(record);
+      localStorage.setItem('healthRecords', JSON.stringify(records));
+      
+      alert('保存成功');
+      goToPage('dashboard');
+    }
+
+    function updateCycleLength(value) {
+      cycleSettings.cycleLength = parseInt(value);
+      document.getElementById('cycleLengthValue').textContent = `${value}天`;
+    }
+
+    function updatePeriodLength(value) {
+      cycleSettings.periodLength = parseInt(value);
+      document.getElementById('periodLengthValue').textContent = `${value}天`;
+    }
+
+    function toggleReminder(type) {
+      const el = document.getElementById(`${type}Reminder`);
+      el.classList.toggle('active');
+    }
+
+    function exportData() {
+      const data = { records: [], cycleSettings, exportedAt: new Date().toISOString() };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      alert('导出成功');
+    }
+
+    function showClearConfirm() {
+      document.getElementById('clearConfirmModal').classList.add('show');
+    }
+
+    function hideClearConfirm() {
+      document.getElementById('clearConfirmModal').classList.remove('show');
+    }
+
+    function clearAllData() {
+      recordData = { isPeriod: false, mood: '', sleepHours: 7, sleepQuality: 3, exercise: 'none', symptoms: [] };
+      cycleSettings = { lastPeriodDate: '', cycleLength: 28, periodLength: 5 };
+      hideClearConfirm();
+      alert('数据已清除');
+    }
+
+    function renderCalendar() {
+      const year = currentCalendarYear;
+      const month = currentCalendarMonth;
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const daysInMonth = lastDay.getDate();
+      const startDayOfWeek = firstDay.getDay();
+
+      document.getElementById('calendarTitle').textContent = `${year}年${month + 1}月`;
+
+      let html = '';
+      for (let i = 0; i < startDayOfWeek; i++) {
+        html += '<div class="calendar-day empty"></div>';
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month, day);
+        const dateStr = formatDate(date);
+        const status = getDayStatus(dateStr);
+        const isToday = dateStr === formatDate(new Date());
+        const isSelected = selectedDate === dateStr;
+        
+        let classes = 'calendar-day';
+        if (isToday) classes += ' today';
+        if (isSelected) classes += ' selected';
+        if (status === 'period') classes += ' period';
+        if (status === 'ovulation') classes += ' ovulation';
+
+        html += `<div class="${classes}" onclick="handleDateClick('${dateStr}')">${day}</div>`;
+      }
+
+      document.getElementById('calendarGrid').innerHTML = html;
+    }
+
+    function updateStatistics() {
+      const records = getFilteredRecords();
+      
+      updateOverviewStats(records);
+      updateMoodStats(records);
+      updateSleepStats(records);
+      updatePeriodStats(records);
+      updateExerciseStats(records);
+    }
+
+    function getFilteredRecords() {
+      let records = JSON.parse(localStorage.getItem('healthRecords') || '[]');
+      
+      if (filterStartDate && filterEndDate) {
+        records = records.filter(r => {
+          return r.date >= filterStartDate && r.date <= filterEndDate;
+        });
+      } else if (selectedDate) {
+        records = records.filter(r => r.date === selectedDate);
+      }
+      
+      return records;
+    }
+
+    function updateMoodStats(records) {
+      const moodCounts = {};
+      records.forEach(r => {
+        if (r.mood) {
+          moodCounts[r.mood] = (moodCounts[r.mood] || 0) + 1;
+        }
+      });
+
+      const total = Object.values(moodCounts).reduce((a, b) => a + b, 0);
+      const moodOrder = ['happy', 'calm', 'tired', 'anxious', 'irritated', 'excited', 'sad'];
+      
+      let html = '';
+      moodOrder.forEach(mood => {
+        const count = moodCounts[mood] || 0;
+        const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+        if (count > 0 || percentage > 0) {
+          html += `
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <span style="font-size: 24px;">${MOOD_MAP[mood].emoji}</span>
+              <span style="flex: 1;">${MOOD_MAP[mood].label}</span>
+              <span>${count}天</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width: ${percentage}%;"></div></div>
+          `;
+        }
+      });
+      
+      document.getElementById('moodStatsContainer').innerHTML = html || '<p style="text-align: center; color: #9ca3af;">暂无数据</p>';
+    }
+
+    function updateSleepStats(records) {
+      const sleepData = records.filter(r => r.sleepHours > 0).map(r => ({
+        date: r.date,
+        hours: r.sleepHours
+      }));
+
+      if (sleepData.length === 0) {
+        document.getElementById('sleepChartContainer').innerHTML = '<p style="text-align: center; color: #9ca3af; padding: 40px 0;">暂无睡眠数据</p>';
+        return;
+      }
+
+      const maxHours = Math.max(...sleepData.map(d => d.hours), 12);
+      let html = '<div style="display: flex; justify-content: space-between; align-items: flex-end; height: 160px; padding: 0 8px;">';
+      
+      const recentData = sleepData.slice(-7);
+      recentData.forEach(d => {
+        const height = (d.hours / maxHours) * 140;
+        const dateParts = d.date.split('-');
+        const displayDate = `${dateParts[1]}/${dateParts[2]}`;
+        html += `
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+            <div style="width: 32px; background: linear-gradient(180deg, var(--primary) 0%, var(--primary-light) 100%); border-radius: 4px 4px 0 0; height: ${height}px;"></div>
+            <span style="font-size: 10px;">${displayDate}</span>
+          </div>
+        `;
+      });
+      
+      html += '</div>';
+      document.getElementById('sleepChartContainer').innerHTML = html;
+    }
+
+    function updatePeriodStats(records) {
+      const periodRecords = records.filter(r => r.isPeriod);
+      const avgCycle = calculateAverageCycle(records);
+      
+      document.getElementById('periodDays').textContent = periodRecords.length;
+      document.getElementById('avgCycle').textContent = avgCycle;
+      document.getElementById('periodDaysCount').textContent = periodRecords.length;
+    }
+
+    function updateOverviewStats(records) {
+      const recordDays = records.length;
+      const sleepRecords = records.filter(r => r.sleepHours > 0);
+      const avgSleep = sleepRecords.length > 0 
+        ? (sleepRecords.reduce((sum, r) => sum + r.sleepHours, 0) / sleepRecords.length).toFixed(1)
+        : '---';
+
+      document.getElementById('recordDays').textContent = recordDays;
+      document.getElementById('avgSleep').textContent = avgSleep;
+    }
+
+    function updateExerciseStats(records) {
+      const exerciseCounts = {};
+      records.forEach(r => {
+        if (r.exercise && r.exercise !== 'none') {
+          exerciseCounts[r.exercise] = (exerciseCounts[r.exercise] || 0) + 1;
+        }
+      });
+
+      const total = Object.values(exerciseCounts).reduce((a, b) => a + b, 0);
+      document.getElementById('exerciseDays').textContent = total;
+    }
+
+    function calculateAverageCycle(records) {
+      const periodDates = records.filter(r => r.isPeriod).map(r => r.date).sort();
+      if (periodDates.length < 2) return '---';
+      
+      let totalDays = 0;
+      for (let i = 1; i < periodDates.length; i++) {
+        const diff = (parseDate(periodDates[i]) - parseDate(periodDates[i-1])) / (1000 * 60 * 60 * 24);
+        totalDays += diff;
+      }
+      
+      return Math.round(totalDays / (periodDates.length - 1));
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('currentDate').textContent = getCurrentDate();
+      document.getElementById('calendarTitle').textContent = `${currentCalendarYear}年${currentCalendarMonth + 1}月`;
+      document.getElementById('recordDate').textContent = getCurrentDate();
+      setSleepQuality(3);
+    });
+  </script>
+</body>
+</html>
